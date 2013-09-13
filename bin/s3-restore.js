@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 var program = require('commander'),
-    knox = require('knox'),
-    rest = require('restler'),
-    _ = require('underscore');
+    async = require('async'),
+    request = require('request'),
+    _ = require('underscore'),
+    AWS = require('aws-sdk'),
+    s3 = new AWS.S3();
 
 
 program
@@ -13,33 +15,44 @@ program
   .option('-u, --url [value]', 'RESTful API URL')
   .parse(process.argv);
 
-var client = knox.createClient({
-  key: process.env.AWS_KEY,
-  secret: process.env.AWS_SECRET,
-  bucket: program.bucket
-});
-
 console.log('Syncronizing bucket: ' + program.bucket + ' to ' + program.url + ' with the following key prefix ' + program.prefix);
 
-client.list({prefix: program.prefix}, function (err, files) {
-  _(files.Contents).each(function (file) {
-    console.log('getting: ' + file.Key);
-    client.get(file.Key).on('response', function (res) {
-        res.setEncoding('utf8');
-        res.on('data', function(chunk){
-          console.log('uploading: ' + file.Key);
-          var options = {
-            data: chunk,
-            headers: {'Content-type': 'application/json', 'Accept': 'application/json'}           
+
+
+s3.listObjects({
+  Bucket: program.bucket,
+  Prefix: program.prefix
+}, function (err, objects) {
+  if(err) console.log(err);
+  console.log('restoring: ' + objects.Contents.length + ' objects');
+  async.eachSeries(objects.Contents, function (object, callback) {
+    console.log('getting: ' + object.Key);
+
+    s3.getObject({Bucket: program.bucket, Key: object.Key}, function (err, data) {
+      console.log('got: ' + object.Key);
+      //console.log(data.Body.toString());
+
+      var options = {
+        url: program.url,
+        body: data.Body.toString(),
+        headers: {'Content-type': 'application/json', 'Accept': 'application/json'}           
+      };
+
+      //callback(null);
+
+      request.post(options, function(data, response) {
+          if (response.statusCode == 200) {
+            console.log('uploaded: ' + object.Key);
+          } else {
+            console.log('error uploading: ' + object.Key);
           }
-          rest.post(program.url, options).on('complete', function(data, response) {
-            if (response.statusCode == 200) {
-              console.log('uploaded: ' + file.Key);
-            } else {
-              console.log('error uploading: ' + file.Key);
-            }
-          });
-        });
-    }).end();
-  })
+          callback(null);
+      });
+
+    });
+
+  }, function (err) {
+    console.log('sync successful');
+  });
+
 });
