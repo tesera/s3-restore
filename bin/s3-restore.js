@@ -12,7 +12,7 @@ program
   .version('0.0.1')
   .option('-b, --bucket [value]', 'S3 Bucket')
   .option('-p, --prefix [value]', 'key prefix')
-  .option('-u, --url [value]', 'RESTful API URL')
+  .option('-u, --url [value]', 'endpoint URL')
   .parse(process.argv);
 
 console.log('Syncronizing bucket: ' + program.bucket + ' to ' + program.url + ' with the following key prefix ' + program.prefix);
@@ -30,15 +30,12 @@ s3.listObjects({
 
     s3.getObject({Bucket: program.bucket, Key: object.Key}, function (err, data) {
       console.log('got: ' + object.Key);
-      //console.log(data.Body.toString());
 
       var options = {
         url: program.url,
         body: data.Body.toString(),
         headers: {'Content-type': 'application/json', 'Accept': 'application/json'}           
       };
-
-      //callback(null);
 
       request.post(options, function(data, response) {
           if (response.statusCode == 200) {
