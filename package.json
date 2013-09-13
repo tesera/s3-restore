@@ -7,12 +7,12 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Yves Richard",
-  "license": "BSD",
+  "license": "MIT",
   "dependencies": {
     "commander": "~2.0.0",
     "knox": "~0.8.6",
     "restler": "~2.0.1",
     "underscore": "~1.5.2"
   },
-  bin: "./bin/s3-restore"
+  "bin": "./bin/s3-restore"
 }
