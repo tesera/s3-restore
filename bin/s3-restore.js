@@ -15,17 +15,20 @@ program
   .option('-u, --url [value]', 'endpoint URL')
   .parse(process.argv);
 
-console.log('Syncronizing bucket: ' + program.bucket + ' to ' + program.url + ' with the following key prefix ' + program.prefix);
+console.log('Restoring bucket: ' + program.bucket + ' to ' + program.url + ' with key prefix ' + program.prefix);
 
+var options = {
+  Bucket: program.bucket
+};
+if(typeof program.prefix !== 'undefined') options.Prefix = program.prefix;
 
-
-s3.listObjects({
-  Bucket: program.bucket,
-  Prefix: program.prefix
-}, function (err, objects) {
+s3.listObjects(options, function (err, objects) {
   if(err) console.log(err);
   console.log('restoring: ' + objects.Contents.length + ' objects');
-  async.eachSeries(objects.Contents, function (object, callback) {
+
+  var sorted = _(objects.Contents).sortBy(function (c) { return c.LastModified.getTime(); });
+
+  async.eachSeries(sorted, function (object, callback) {
     console.log('getting: ' + object.Key);
 
     s3.getObject({Bucket: program.bucket, Key: object.Key}, function (err, data) {
@@ -34,7 +37,7 @@ s3.listObjects({
       var options = {
         url: program.url,
         body: data.Body.toString(),
-        headers: {'Content-type': 'application/json', 'Accept': 'application/json'}           
+        headers: {'Content-type': 'application/json', 'Accept': 'application/json'}
       };
 
       request.post(options, function(data, response) {
@@ -49,7 +52,7 @@ s3.listObjects({
     });
 
   }, function (err) {
-    console.log('sync successful');
+    console.log('restore successful');
   });
 
 });
